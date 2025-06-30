@@ -1,0 +1,112 @@
+# Global settings for the training process
+Global:
+  use_gpu: true
+  epoch_num: 100
+  save_interval: 5
+  eval_batch_step: [0, 100]
+  save_epoch_step: 10
+  save_model_dir: ./output/khmer_rec_models/
+  save_res_path: ./output/khmer_rec_models/
+  log_smooth_window: 20
+  print_batch_step: 10
+
+# Loss function configuration
+Loss:
+  name: CTCLoss
+
+# Training dataset configuration
+Train:
+  dataset:
+    name: SimpleDataSet
+    data_dir: ../output_images/
+    label_file_list:
+      - ../output_images/train_rec.txt
+    transforms:
+      - DecodeImage:
+          img_mode: BGR
+          channel_first: False
+      # Removed: - ColorConvert:
+      # Removed:     target_mode: BGR
+      - RecResizeImg:
+          image_shape: [3, 48, 600] # Output is CHW
+      - NormalizeImage:
+          scale: 1./255.
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+          order: chw # <--- CHANGE THIS FROM hwc TO chw
+      - CTCLabelEncode:
+          max_text_length: 75 
+      - KeepKeys:
+          keep_keys: ['image', 'label', 'length']
+  loader:
+    shuffle: true
+    batch_size_per_card: 16
+    drop_last: true
+    num_workers: 8
+
+# Evaluation dataset configuration
+Eval:
+  dataset:
+    name: SimpleDataSet
+    data_dir: ../output_images/
+    label_file_list:
+      - ../output_images/val_rec.txt
+    transforms:
+      - DecodeImage:
+          img_mode: BGR
+          channel_first: False
+
+      - RecResizeImg:
+          image_shape: [3, 48, 600]
+      - NormalizeImage:
+          scale: 1./255.
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+          order: chw 
+      - CTCLabelEncode:
+          max_text_length: 75 
+      - KeepKeys:
+          keep_keys: ['image', 'label', 'length']
+  loader:
+    shuffle: false
+    drop_last: false
+    batch_size_per_card: 16
+    num_workers: 4
+    
+# Model architecture definition
+Architecture:
+  model_type: rec
+  algorithm: CRNN
+  Backbone:
+    name: ResNet
+    layers: 34
+  Neck:
+    name: SequenceEncoder
+    encoder_type: reshape
+    with_encoder: true
+  Head:
+    name: CTCHead
+    fc_decay: 0.0001
+    CharacterDictPath: ../output_images/khmer_char_dict.txt
+
+# Optimizer settings
+Optimizer:
+  name: Adam
+  lr:
+    name: Cosine
+    learning_rate: 0.0001
+  regularizer:
+    name: L2
+    factor: 0.00001
+
+# Post-processing for model output
+PostProcess:
+  name: CTCLabelDecode
+
+# Evaluation metrics
+Metric:
+  name: RecMetric
+  gtc_decode: False
+
+# Pre-trained model to fine-tune from
+Pretrain_model: ../pretrain_models/rec_en_number_latin_res34_vd_tps_bilstm_ctc.tar?

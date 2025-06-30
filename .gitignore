@@ -1,0 +1,5 @@
+PaddleOCR/
+output_images/
+pretrain_models/
+test-image/
+.python-version
